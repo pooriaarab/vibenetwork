@@ -19,7 +19,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@pooriaarab/vibe-core": "^0.3.0",
-    "hyperswarm": "^4.17.0"
+    "hyperswarm": "^4.17.0",
+    "zod": "^3.25 || ^4.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
