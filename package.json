@@ -1,0 +1,32 @@
+{
+  "name": "vibenetwork",
+  "version": "0.1.0",
+  "description": "Decentralized social network for AI coders — P2P, verified-by-usage ed25519 identity, presence, follow, signed-post feed, e2e DMs. Local-first.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Pooria Arab",
+  "bin": {
+    "vibenetwork": "./dist/cli.js",
+    "vibenetwork-mcp": "./dist/mcp.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts src/mcp.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@pooriaarab/vibe-core": "^0.3.0",
+    "hyperswarm": "^4.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "hyperdht": "^6.33.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "werift": "^0.24.1"
+  }
+}
