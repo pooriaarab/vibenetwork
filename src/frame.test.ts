@@ -6,6 +6,7 @@ import {
   MAX_MIME_LEN,
   MAX_NAME_LEN,
   MAX_SDP_LEN,
+  POST_TEXT_MAX,
   parseFrame,
   serializeFrame,
   type Frame,
@@ -275,5 +276,49 @@ describe('frame protocol — rtc signaling frames', () => {
   it('admits an empty rtc-ice candidate (trickle end-of-gathering marker)', () => {
     const f: Frame = { t: 'rtc-ice', candidate: '' };
     expect(parseFrame(serializeFrame(f))).toEqual(f);
+  });
+});
+
+describe('frame protocol — post (signed feed post)', () => {
+  const post: Frame = {
+    t: 'post',
+    id: 'a'.repeat(64),
+    author: 'b'.repeat(64),
+    text: 'shipping v0',
+    at: 1_700_000_000_000,
+    sig: 'c'.repeat(128),
+  };
+
+  it('round-trips a post frame', () => {
+    expect(parseFrame(serializeFrame(post))).toEqual(post);
+  });
+
+  it('drops extra keys on a post frame (allowlist)', () => {
+    const raw = JSON.stringify({ ...(post as object), leak: 'raw-usage', impersonator: true });
+    expect(parseFrame(raw)).toEqual(post);
+  });
+
+  it('rejects malformed hex fields (id/author/sig)', () => {
+    const base = JSON.parse(serializeFrame(post)) as Record<string, unknown>;
+    expect(parseFrame(JSON.stringify({ ...base, id: 'a'.repeat(63) }))).toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, id: 'z'.repeat(64) }))).toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, author: 'b'.repeat(65) }))).toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, sig: 'c'.repeat(127) }))).toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, sig: 7 }))).toBeNull();
+  });
+
+  it('enforces the 500-char post cap and rejects empty text', () => {
+    const base = JSON.parse(serializeFrame(post)) as Record<string, unknown>;
+    expect(parseFrame(JSON.stringify({ ...base, text: 'x'.repeat(POST_TEXT_MAX) }))).not.toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, text: 'x'.repeat(POST_TEXT_MAX + 1) }))).toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, text: '' }))).toBeNull();
+  });
+
+  it('rejects a missing/invalid at', () => {
+    const base = JSON.parse(serializeFrame(post)) as Record<string, unknown>;
+    expect(parseFrame(JSON.stringify({ ...base, at: 'now' }))).toBeNull();
+    expect(parseFrame(JSON.stringify({ ...base, at: -5 }))).toBeNull();
+    delete base['at'];
+    expect(parseFrame(JSON.stringify(base))).toBeNull();
   });
 });

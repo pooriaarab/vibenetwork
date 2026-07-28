@@ -24,7 +24,14 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { Duplex } from 'node:stream';
-import { parseFrame, serializeFrame, type Frame, type MediaFrame, type RtcFrame } from './frame.js';
+import {
+  parseFrame,
+  serializeFrame,
+  type Frame,
+  type MediaFrame,
+  type PostFrame,
+  type RtcFrame,
+} from './frame.js';
 import {
   MediaReceiver,
   type ReceivedMedia,
@@ -43,6 +50,8 @@ export interface PeerLink {
   readonly hello: PeerHello;
   /** Send a line of text as a `msg` frame. */
   send(text: string): void;
+  /** Send a signed feed post as a `post` frame (see feed.ts for the scheme). */
+  sendPost(post: PostFrame): void;
   /** Read a file from disk and send it as a chunked media transfer. */
   sendMedia(
     filePath: string,
@@ -53,6 +62,9 @@ export interface PeerLink {
   sendSignal(frame: RtcFrame): void;
   /** Register a callback for each incoming `msg` frame. */
   onMessage(cb: (m: { id: string; text: string; at: number }) => void): void;
+  /** Register a callback for each incoming `post` frame (shape-parsed only —
+   *  the receiver MUST still verify the signature before retaining it). */
+  onPost(cb: (p: PostFrame) => void): void;
   /** Register a callback fired for each fully-reassembled incoming media file. */
   onMedia(cb: (m: ReceivedMedia) => void): void;
   /** Register a callback fired for each incoming `rtc-*` signaling frame. */
@@ -75,6 +87,7 @@ export function createPeerLink(
   linkOpts: CreatePeerLinkOptions = {},
 ): PeerLink {
   const messageCbs = new Set<(m: { id: string; text: string; at: number }) => void>();
+  const postCbs = new Set<(p: PostFrame) => void>();
   const mediaCbs = new Set<(m: ReceivedMedia) => void>();
   const signalCbs = new Set<(f: RtcFrame) => void>();
   const closeCbs = new Set<() => void>();
@@ -102,6 +115,18 @@ export function createPeerLink(
       case 'msg': {
         const m = { id: frame.id, text: frame.text, at: frame.at };
         for (const cb of messageCbs) cb(m);
+        break;
+      }
+      case 'post': {
+        const p: PostFrame = {
+          t: 'post',
+          id: frame.id,
+          author: frame.author,
+          text: frame.text,
+          at: frame.at,
+          sig: frame.sig,
+        };
+        for (const cb of postCbs) cb(p);
         break;
       }
       case 'media-start':
@@ -177,6 +202,19 @@ export function createPeerLink(
       const frame: Frame = { t: 'msg', id: randomUUID(), text, at: Date.now() };
       socket.write(serializeFrame(frame) + '\n');
     },
+    sendPost(post) {
+      if (closed) return;
+      // Rebuild key-by-key so only the allowlisted post fields hit the wire.
+      const frame: Frame = {
+        t: 'post',
+        id: post.id,
+        author: post.author,
+        text: post.text,
+        at: post.at,
+        sig: post.sig,
+      };
+      socket.write(serializeFrame(frame) + '\n');
+    },
     async sendMedia(filePath, opts = {}) {
       if (closed) return { id: '', size: 0 };
       return sendMediaFile({ socket, path: filePath, mime: opts.mime, name: opts.name });
@@ -187,6 +225,9 @@ export function createPeerLink(
     },
     onMessage(cb) {
       messageCbs.add(cb);
+    },
+    onPost(cb) {
+      postCbs.add(cb);
     },
     onMedia(cb) {
       ensureMediaReceiver();

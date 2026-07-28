@@ -40,6 +40,15 @@ export const HELLO_SIG_HEX_LEN = 128;
 /** Largest hex nonce accepted on a `hello` frame (16 random bytes = 32). */
 export const MAX_HELLO_NONCE_HEX_LEN = 64;
 
+/** Longest text accepted on a `post` frame (the vibenetwork post cap). */
+export const POST_TEXT_MAX = 500;
+/** Exact hex length of a post id (sha256 of the canonical post payload). */
+export const POST_ID_HEX_LEN = 64;
+/** Exact hex length of a post author's ed25519 raw public key. */
+export const POST_AUTHOR_HEX_LEN = 64;
+/** Exact hex length of a post's ed25519 signature. */
+export const POST_SIG_HEX_LEN = 128;
+
 export type Frame =
   | {
       t: 'hello';
@@ -52,6 +61,7 @@ export type Frame =
       sig?: string;
     }
   | { t: 'msg'; id: string; text: string; at: number }
+  | { t: 'post'; id: string; author: string; text: string; at: number; sig: string }
   | { t: 'typing' }
   | { t: 'bye' }
   | { t: 'media-start'; id: string; mime: string; size: number; name: string }
@@ -63,6 +73,9 @@ export type Frame =
 
 /** Convenience union of the three media-transfer frame types. */
 export type MediaFrame = Extract<Frame, { t: `media-${string}` }>;
+
+/** The signed feed-post frame (see feed.ts for the sign/verify scheme). */
+export type PostFrame = Extract<Frame, { t: 'post' }>;
 
 /** Convenience union of the three WebRTC signaling frame types (offer / answer
  *  / ice). Live A/V runs in the BROWSER via a native RTCPeerConnection; these
@@ -131,6 +144,20 @@ export function parseFrame(raw: string | Buffer): Frame | null {
       if (typeof txt !== 'string' || txt.length === 0 || txt.length > MAX_TEXT_LEN) return null;
       if (typeof at !== 'number' || !Number.isFinite(at)) return null;
       return { t: 'msg', id, text: txt, at };
+    }
+    case 'post': {
+      // A signed feed post. Shape-only checks here (exact hex, length caps) —
+      // whether the signature actually VERIFIES against `author` is decided one
+      // layer up (feed.ts), exactly like the hello identity proof. Extra keys
+      // are dropped by construction.
+      const id = r['id']; const author = r['author']; const txt = r['text'];
+      const at = r['at']; const sig = r['sig'];
+      if (typeof id !== 'string' || !/^[0-9a-fA-F]{64}$/.test(id)) return null;
+      if (typeof author !== 'string' || !/^[0-9a-fA-F]{64}$/.test(author)) return null;
+      if (typeof txt !== 'string' || txt.length === 0 || txt.length > POST_TEXT_MAX) return null;
+      if (typeof at !== 'number' || !Number.isFinite(at) || at < 0) return null;
+      if (typeof sig !== 'string' || !/^[0-9a-fA-F]{128}$/.test(sig)) return null;
+      return { t: 'post', id, author, text: txt, at, sig };
     }
     case 'media-start': {
       const id = r['id']; const mime = r['mime']; const size = r['size']; const name = r['name'];
