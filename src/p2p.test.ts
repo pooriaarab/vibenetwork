@@ -17,7 +17,7 @@ import {
 const alice: PeerHello = { handle: '@alice', league: '10M', harness: 'claude-code' };
 
 describe('leagueTopic()', () => {
-  it('is sha256("vibedate:" + league) — 32 bytes, spec formula', () => {
+  it('is sha256("vibenet:" + league) — 32 bytes, spec formula', () => {
     const expected = createHash('sha256').update(`${TOPIC_PREFIX}100M`, 'utf8').digest();
     expect(leagueTopic('100M').equals(expected)).toBe(true);
     expect(leagueTopic('100M')).toHaveLength(32);
@@ -106,7 +106,7 @@ describe('handshake — verified flag', () => {
   });
 
   it('recordPeer persists verified when present, and drops it when a re-sighting omits it', () => {
-    const dir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-peers-verified-'));
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-peers-verified-'));
     try {
       recordPeer({ ...alice, verified: true }, dir);
       expect(loadPeers(dir)[0]).toMatchObject({ handle: '@alice', verified: true });
@@ -129,7 +129,7 @@ describe('handshake — verified flag', () => {
 describe('recordPeer() / loadPeers()', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-peers-'));
+    dir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-peers-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -205,7 +205,7 @@ describe('handshake — identity proof fields', () => {
 describe('recordPeer() — identity + lastMessageAt persistence', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-peers-id-'));
+    dir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-peers-id-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

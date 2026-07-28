@@ -30,7 +30,7 @@ const CLAIMS: HelloClaims = {
 describe('loadOrCreateIdentity', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-identity-'));
+    dir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-identity-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -85,7 +85,7 @@ describe('canonicalHelloClaims', () => {
 describe('signHelloClaims / verifyHelloClaims — round-trip + tamper', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-identity-'));
+    dir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-identity-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -121,7 +121,7 @@ describe('signHelloClaims / verifyHelloClaims — round-trip + tamper', () => {
 
   it('a signature from a DIFFERENT key fails (cannot forge another identity)', () => {
     const alice = loadOrCreateIdentity(dir);
-    const malloryDir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-identity-m-'));
+    const malloryDir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-identity-m-'));
     try {
       const mallory = loadOrCreateIdentity(malloryDir);
       const forged = signHelloClaims(mallory, CLAIMS);
@@ -144,7 +144,7 @@ describe('signHelloClaims / verifyHelloClaims — round-trip + tamper', () => {
 describe('classifyHelloIdentity', () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(path.join(os.tmpdir(), 'vibedating-identity-'));
+    dir = mkdtempSync(path.join(os.tmpdir(), 'vibenetwork-identity-'));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

@@ -2,7 +2,7 @@
  * Persistent ed25519 identity — binds a handle to a keypair so a peer cannot
  * impersonate it.
  *
- * The keypair lives at `~/.vibedating/identity.json` (mode 0600), generated on
+ * The keypair lives at `~/.vibenetwork/identity.json` (mode 0600), generated on
  * first use and reused across runs. A hello that carries a `pubkey` must also
  * carry a valid `sig` over the canonical claims string
  * `handle|league|harness|verified|nonce`; anything else claiming a key is an

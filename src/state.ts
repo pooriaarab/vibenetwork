@@ -1,48 +1,33 @@
 /**
- * Local profile state — the only thing persisted on disk.
+ * Local state plumbing — state dir, consent ledger, handle, blocklist.
  *
- * The league bucket is "shared" (with the local demo pool); the raw `totalTokens`
- * is stored only so the local web app can show it to the user behind an opt-in
- * toggle. It NEVER leaves this machine in v0 (no central directory).
+ * The profile itself lives in profile.ts; this module owns everything ELSE
+ * persisted under `~/.vibenetwork`: the live-discovery consent grant, the
+ * persistent handle, and the blocklist. Raw token usage is never stored here
+ * and never shared; only the derived league bucket + verified flag travel.
  *
- * Consent for sharing the league is modeled with vibe-core's `createConsentLedger`
- * (scope {@link CONSENT_SCOPE}); it is granted on `connect` and revocable on
- * reset. Backed by a tiny JSON file next to the profile so it survives restarts.
+ * Consent for live P2P discovery is modeled with vibe-core's
+ * `createConsentLedger` (scope {@link LIVE_CONSENT_SCOPE}); it is granted on
+ * `connect` (creating a profile IS joining the network) and backed by a tiny
+ * JSON file so it survives restarts.
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createConsentLedger } from '@pooriaarab/vibe-core';
-import type { ConsentGrant, ConsentLedger, ConsentStore, UsageSnapshot } from '@pooriaarab/vibe-core';
-import { league } from './index.js';
-
-/** Consent scope covering "share my league bucket". Raw usage is never in scope. */
-export const CONSENT_SCOPE = 'share:league';
+import type { ConsentGrant, ConsentLedger, ConsentStore } from '@pooriaarab/vibe-core';
 
 /**
- * Consent scope covering live P2P discovery: joining the public DHT on your
- * league topic and exchanging { handle, league, harness, verified flag,
- * identity pubkey } with same-league peers. Raw usage is never in scope.
- * Opt-in only (default OFF) — granted by `vibedating discover --live`, never
- * implicitly.
+ * Consent scope covering live P2P discovery: joining the public DHT on the
+ * global `vibenet:all` topic and exchanging { handle, league, harness,
+ * verified flag, identity pubkey } with peers, plus signed posts and DMs.
+ * Raw usage is never in scope. Granted by `vibenetwork connect`.
  */
 export const LIVE_CONSENT_SCOPE = 'share:live';
 
-/** The persisted profile. `totalTokens` is LOCAL ONLY. */
-export interface ProfileState {
-  readonly handle: string;
-  readonly harness: string;
-  readonly league: string;
-  readonly leagueMin: number;
-  /** LOCAL ONLY — never shared off-machine. Kept so the local UI can show it. */
-  readonly totalTokens: number;
-  readonly verified: boolean;
-  readonly connectedAt: string;
-}
-
-/** Default directory for vibedating's local state: `~/.vibedating`. */
+/** Default directory for vibenetwork's local state: `~/.vibenetwork`. */
 export function defaultStateDir(): string {
-  return path.join(os.homedir(), '.vibedating');
+  return path.join(os.homedir(), '.vibenetwork');
 }
 
 /** A file-backed {@link ConsentStore}; survives across CLI/server/MCP processes. */
@@ -70,75 +55,17 @@ export function createLedger(dir: string = defaultStateDir()): ConsentLedger {
   return createConsentLedger(new FileConsentStore(path.join(dir, 'consent.json')));
 }
 
-function profilePath(dir: string): string {
-  return path.join(dir, 'state.json');
-}
-
-/**
- * Read usage → bucket into a league → grant share consent → persist the profile.
- * Returns the resulting {@link ProfileState}. Idempotent: re-connecting refreshes
- * the snapshot and re-grants consent.
- */
-export function connectProfile(
-  snapshot: UsageSnapshot,
-  handle: string,
-  dir: string = defaultStateDir(),
-): ProfileState {
-  const lg = league(snapshot.totalTokens);
-  createLedger(dir).grant(CONSENT_SCOPE, 'connect: league bucket only; raw usage stays local');
-  const state: ProfileState = {
-    handle,
-    harness: snapshot.harness,
-    league: lg.name,
-    leagueMin: lg.min,
-    totalTokens: snapshot.totalTokens,
-    verified: snapshot.verified,
-    connectedAt: new Date().toISOString(),
-  };
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(profilePath(dir), JSON.stringify(state, null, 2) + '\n', 'utf8');
-  return state;
-}
-
-/** Load the persisted profile, or `null` if never connected. */
-export function loadProfile(dir: string = defaultStateDir()): ProfileState | null {
-  try {
-    const raw = readFileSync(profilePath(dir), 'utf8');
-    return JSON.parse(raw) as ProfileState;
-  } catch {
-    return null;
-  }
-}
-
-/** Whether the user has consented to share their league bucket. */
-export function canShareLeague(dir: string = defaultStateDir()): boolean {
-  return createLedger(dir).allows(CONSENT_SCOPE);
-}
-
-/** Grant (idempotently) consent for live P2P discovery — the explicit opt-in. */
+/** Grant (idempotently) consent for live P2P discovery — the connect-time opt-in. */
 export function grantLiveConsent(dir: string = defaultStateDir()): void {
   createLedger(dir).grant(
     LIVE_CONSENT_SCOPE,
-    'discover --live: share handle+league+harness+verified flag+identity pubkey (never raw usage) with same-league peers on the public DHT',
+    'connect: share handle+league+harness+verified flag+identity pubkey + signed posts (never raw usage) with peers on the public DHT',
   );
 }
 
-/** Whether the user has opted in to live P2P discovery. Default OFF. */
+/** Whether the user has opted in to live P2P discovery (via `connect`). */
 export function canShareLive(dir: string = defaultStateDir()): boolean {
   return createLedger(dir).allows(LIVE_CONSENT_SCOPE);
-}
-
-/** Forget the profile, revoke all share consent, and drop the live peer book. */
-export function resetProfile(dir: string = defaultStateDir()): void {
-  const ledger = createLedger(dir);
-  ledger.revoke(CONSENT_SCOPE);
-  ledger.revoke(LIVE_CONSENT_SCOPE);
-  try {
-    rmSync(profilePath(dir), { force: true });
-    rmSync(path.join(dir, 'peers.json'), { force: true });
-  } catch {
-    /* already gone */
-  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -146,7 +73,7 @@ export function resetProfile(dir: string = defaultStateDir()): void {
 /* -------------------------------------------------------------------------- */
 
 /** File under the state dir holding the chosen handle, independent of the
- *  profile so `vibedate handle @name` works before `connect`. */
+ *  profile so the handle can be set before `connect`. */
 const HANDLE_FILE = 'handle.json';
 
 /** Default handle when none is persisted and no env override is set. */
@@ -203,9 +130,9 @@ export function loadHandle(dir: string = defaultStateDir()): string {
 }
 
 /**
- * Validate + persist a handle to `<dir>/handle.json`, and (if a profile already
- * exists) mirror it onto the profile so `matches`/`discover`/`live` reflect it
- * without a reconnect. Returns the canonical handle; throws on invalid input.
+ * Validate + persist a handle to `<dir>/handle.json`. Returns the canonical
+ * handle; throws on invalid input. (profile.ts mirrors it onto an existing
+ * profile — kept out of here to avoid a circular import.)
  */
 export function saveHandle(handle: string, dir: string = defaultStateDir()): string {
   const canonical = normalizeHandle(handle);
@@ -216,26 +143,17 @@ export function saveHandle(handle: string, dir: string = defaultStateDir()): str
   }
   mkdirSync(dir, { recursive: true });
   writeFileSync(handleFilePath(dir), JSON.stringify({ handle: canonical }, null, 2) + '\n', 'utf8');
-  // Mirror onto an existing profile so live commands see the new handle at once.
-  const existing = loadProfile(dir);
-  if (existing !== null) {
-    writeFileSync(
-      profilePath(dir),
-      JSON.stringify({ ...existing, handle: canonical }, null, 2) + '\n',
-      'utf8',
-    );
-  }
   return canonical;
 }
 
 /**
  * Resolve the effective handle for THIS invocation: an env override
- * (`VIBEDATING_HANDLE`) wins as a ONE-OFF (it is never persisted), then the
+ * (`VIBENETWORK_HANDLE`) wins as a ONE-OFF (it is never persisted), then the
  * persisted handle, then {@link DEFAULT_HANDLE}. An invalid env value is
  * ignored (falls through to the persisted/default handle).
  */
 export function resolveHandle(dir: string = defaultStateDir()): string {
-  const env = process.env['VIBEDATING_HANDLE'];
+  const env = process.env['VIBENETWORK_HANDLE'];
   if (env !== undefined && env.trim() !== '') {
     const canonical = normalizeHandle(env);
     if (canonical !== null) return canonical;

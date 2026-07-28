@@ -1,8 +1,9 @@
 /**
- * Live P2P matching over the hyperswarm DHT — no central server.
+ * Live P2P discovery over the hyperswarm DHT — no central server.
  *
- * Discovery: the league bucket computed by `connect` is hashed into a 32-byte
- * topic (`sha256('vibedate:' + league)`). Peers in the same league join the
+ * Discovery: a named bucket is hashed into a 32-byte topic
+ * (`sha256('vibenet:' + name)`). For vibenetwork v0 the whole network shares
+ * ONE global topic (`vibenet:all`) for signed posts + presence; peers join the
  * same topic and find each other on the public DHT (NAT hole-punching and
  * connection encryption come from hyperswarm/hyperdht).
  *
@@ -31,8 +32,8 @@ import { defaultStateDir } from './state.js';
 /* Topic derivation                                                           */
 /* -------------------------------------------------------------------------- */
 
-/** Namespace prefix so vibedating topics never collide with other DHT traffic. */
-export const TOPIC_PREFIX = 'vibedate:';
+/** Namespace prefix so vibenetwork topics never collide with other DHT traffic. */
+export const TOPIC_PREFIX = 'vibenet:';
 
 /**
  * Derive the 32-byte DHT topic for a league bucket. Deterministic: everyone in
@@ -164,7 +165,7 @@ export function parseHandshake(raw: string | Buffer): PeerHello | null {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Peer persistence (~/.vibedating/peers.json)                                 */
+/* Peer persistence (~/.vibenetwork/peers.json)                                */
 /* -------------------------------------------------------------------------- */
 
 /** A peer we've shaken hands with, persisted locally. */
@@ -294,12 +295,12 @@ export interface DiscoveryOptions {
    * Predicate over an incoming peer's advertised handle. A blocked peer's hello
    * is DROPPED exactly like a wrong-league one — never recorded to peers.json,
    * never notified, never handed to `onLink`/pairing. Default: nothing blocked.
-   * The CLI passes one backed by the persisted blocklist (~/.vibedating).
+   * The CLI passes one backed by the persisted blocklist (~/.vibenetwork).
    */
   readonly isBlocked?: (handle: string) => boolean;
   /** DHT bootstrap nodes; omit for the public DHT. Tests pass a local testnet. */
   readonly bootstrap?: ReadonlyArray<{ readonly host: string; readonly port: number }>;
-  /** Where peers.json lives. Defaults to ~/.vibedating. */
+  /** Where peers.json lives. Defaults to ~/.vibenetwork. */
   readonly stateDir?: string;
   /** Called after each accepted handshake; `isNew` = first time this handle is seen. */
   readonly onPeer?: (peer: PeerHello, isNew: boolean) => void;
