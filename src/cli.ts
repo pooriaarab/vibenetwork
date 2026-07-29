@@ -51,7 +51,7 @@ import {
 import { sanitizePeerText } from './untrusted.js';
 
 /** Mirrors package.json version (kept here; package.json imports are brittle under bundling). */
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 
 /** Recognized top-level commands, plus the synthetic help/version. */
 export type Command =
