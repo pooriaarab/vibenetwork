@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "vibenetwork": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "vibenetwork",
+        "mcp"
+      ]
+    }
+  }
+}
