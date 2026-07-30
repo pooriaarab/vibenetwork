@@ -372,7 +372,7 @@ async function cmdWho(): Promise<number> {
       seen.add(peer.handle);
       const mark = `${usageMark(peer)}${idMark(peer)}`;
       const followed = isFollowed(peer.handle, dir) ? ' · following' : '';
-      // AEGIS: the handle is wire data — display-sanitized, never trusted.
+      // input-safety: the handle is wire data — display-sanitized, never trusted.
       process.stdout.write(
         `  + ${sanitizePeerText(peer.handle)} (${peer.league} · ${peer.harness}) ${mark}${followed}${isNew ? '  ← new' : ''}\n`,
       );
@@ -451,7 +451,7 @@ async function cmdFeed(all: boolean): Promise<number> {
   for (const p of posts.slice(0, 50)) {
     const peer = byPubkey.get(p.authorPubkey.toLowerCase());
     const mine = p.authorPubkey === profile.pubkey;
-    // AEGIS: handle + text are untrusted — sanitized before display.
+    // input-safety: handle + text are untrusted — sanitized before display.
     const author = mine
       ? profile.handle
       : peer !== undefined
@@ -553,7 +553,7 @@ async function cmdDm(arg: string | undefined): Promise<number> {
       current = link;
       link.onMessage((m) => {
         recordDm(target, { direction: 'in', text: m.text, at: m.at }, dir);
-        // AEGIS: DM text + handle are untrusted — sanitized before display.
+        // input-safety: DM text + handle are untrusted — sanitized before display.
         process.stdout.write(`  <${sanitizePeerText(link.hello.handle)}> ${sanitizePeerText(m.text)}\n`);
       });
       link.onClose(() => {

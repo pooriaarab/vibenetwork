@@ -1,5 +1,5 @@
 /**
- * AEGIS-lite — anything arriving from a peer is UNTRUSTED DISPLAY DATA.
+ * input-safety — anything arriving from a peer is UNTRUSTED DISPLAY DATA.
  *
  * Incoming chat text (and wire handles) are never executed, never passed to a
  * shell, never fed to an agent — the only thing we ever do with them is SHOW

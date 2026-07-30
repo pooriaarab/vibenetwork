@@ -14,7 +14,7 @@
  *   - {@link verifyPost} NEVER throws: any anomaly (bad shape, id mismatch,
  *     bad signature) is simply `false`, and the store DROPS such posts
  *     (tamper-drop) — they are never persisted, never displayed.
- *   - Post text is UNTRUSTED display data (AEGIS): never executed, sanitized
+ *   - Post text is UNTRUSTED display data (input-safety): never executed, sanitized
  *     before display (untrusted.ts) by every surface that shows it.
  *   - The store is bounded ({@link MAX_FEED_POSTS}); a flood cannot grow it
  *     without limit, and duplicates (same id) are absorbed.

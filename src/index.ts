@@ -13,7 +13,7 @@
  *     local follow graph filters what you SEE, not which topic you join.
  *   - DMs ride per-peer encrypted connections (hyperswarm noise) whose hello
  *     handshake is bound to the peer's identity key.
- *   - AEGIS: all peer text (posts, DMs, handles, bios) is UNTRUSTED display
+ *   - input-safety: all peer text (posts, DMs, handles, bios) is UNTRUSTED display
  *     data — never executed, sanitized before display.
  */
 
