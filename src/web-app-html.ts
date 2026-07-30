@@ -3,7 +3,7 @@
  *
  * Local-first: profile, feed, follow graph, presence roster, and DMs — all
  * served from this machine by `src/server.ts`. Peer text is always rendered
- * via textContent (AEGIS). No external deps; inline CSS + JS only.
+ * via textContent (input-safety). No external deps; inline CSS + JS only.
  *
  * Served as-is by the local HTTP server; not exported for library consumers.
  */
