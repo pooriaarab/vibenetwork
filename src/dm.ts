@@ -11,7 +11,7 @@
  *     end of a DM thread IS the holder of that identity key.
  *
  * Threads persist locally (~/.vibenetwork/dms.json), bounded per thread.
- * DM text is UNTRUSTED display data (AEGIS): never executed, sanitized before
+ * DM text is UNTRUSTED display data (input-safety): never executed, sanitized before
  * display by every surface that shows it (untrusted.ts).
  */
 import { randomUUID } from 'node:crypto';
