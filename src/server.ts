@@ -44,7 +44,7 @@ import {
   type LocalUsageSnapshot,
 } from './profile.js';
 import { defaultStateDir, normalizeHandle, sameHandle } from './state.js';
-import { sanitizePeerText } from './untrusted.js';
+import { sanitizePeerText } from '@pooriaarab/vibe-core/untrusted';
 import { webAppHtml } from './web-app-html.js';
 
 /* -------------------------------------------------------------------------- */

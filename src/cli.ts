@@ -48,7 +48,7 @@ import {
   sameHandle,
   saveHandle,
 } from './state.js';
-import { sanitizePeerText } from './untrusted.js';
+import { sanitizePeerText } from '@pooriaarab/vibe-core/untrusted';
 
 /** Mirrors package.json version (kept here; package.json imports are brittle under bundling). */
 const VERSION = '0.1.1';

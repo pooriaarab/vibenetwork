@@ -29,7 +29,7 @@ import { rosterFromPeers, startPresence } from './presence.js';
 import { loadProfile } from './profile.js';
 import type { Profile } from './index.js';
 import { defaultStateDir, resolveHandle } from './state.js';
-import { sanitizePeerText } from './untrusted.js';
+import { sanitizePeerText } from '@pooriaarab/vibe-core/untrusted';
 
 /** A single MCP text content block, narrowly typed for the SDK's union. */
 type TextBlock = { readonly type: 'text'; readonly text: string };
