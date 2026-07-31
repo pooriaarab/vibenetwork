@@ -23,7 +23,7 @@
  * onto the P2P connection or into local stores.
  */
 import http, { type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { newId } from '@pooriaarab/vibe-core/ids';
 import type { Harness } from '@pooriaarab/vibe-core';
 import { loadThread, recordDm } from './dm.js';
 import { createFeedStore, createPost, postToFrame } from './feed.js';
@@ -675,7 +675,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, opts: HandleOpt
     // the allowlist — empty / oversized / non-string never reaches the PeerLink.
     // id + at are minted HERE; the browser supplies text only.
     const reParsed = parseFrame(
-      JSON.stringify({ t: 'msg', id: randomUUID(), text, at: Date.now() }),
+      JSON.stringify({ t: 'msg', id: newId(), text, at: Date.now() }),
     );
     if (reParsed === null || reParsed.t !== 'msg') {
       sendJson(res, 400, { error: 'invalid message text' });
