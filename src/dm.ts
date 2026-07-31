@@ -14,7 +14,7 @@
  * DM text is UNTRUSTED display data (input-safety): never executed, sanitized before
  * display by every surface that shows it (untrusted.ts).
  */
-import { randomUUID } from 'node:crypto';
+import { newId } from '@pooriaarab/vibe-core/ids';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { MAX_TEXT_LEN } from './frame.js';
@@ -91,7 +91,7 @@ export function recordDm(
   if (canonical === null) return null;
   const threads = loadThreads(dir);
   const message: DmMessage = {
-    id: randomUUID(),
+    id: newId(),
     direction: msg.direction,
     text: msg.text.slice(0, MAX_TEXT_LEN),
     at: msg.at ?? Date.now(),
