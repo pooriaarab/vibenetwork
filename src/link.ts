@@ -22,7 +22,7 @@
  * connection handler may hand any leftover bytes (after the hello line) in
  * `initialBuffer` so frames sent immediately after hello are not lost.
  */
-import { randomUUID } from 'node:crypto';
+import { newId } from '@pooriaarab/vibe-core/ids';
 import type { Duplex } from 'node:stream';
 import {
   parseFrame,
@@ -146,7 +146,7 @@ export function createPeerLink(
     hello,
     send(text) {
       if (coreLink.closed) return;
-      coreLink.sendFrame({ t: 'msg', id: randomUUID(), text, at: Date.now() });
+      coreLink.sendFrame({ t: 'msg', id: newId(), text, at: Date.now() });
     },
     sendPost(post) {
       if (coreLink.closed) return;
