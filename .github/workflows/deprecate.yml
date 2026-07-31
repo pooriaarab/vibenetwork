@@ -1,0 +1,21 @@
+name: Deprecate a version
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: version to deprecate
+        required: true
+      message:
+        description: deprecation message
+        required: true
+jobs:
+  deprecate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm deprecate "${{ github.event.repository.name == 'vibenetwork' && 'vibenetwork' || github.event.repository.name }}@${{ inputs.version }}" "${{ inputs.message }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
