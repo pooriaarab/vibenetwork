@@ -116,7 +116,7 @@ export { loadThread, recordDm, sendDm, threadPeers } from './dm.js';
 export type { DmMessage } from './dm.js';
 
 export { generateHandle, ensureHandle } from './handlegen.js';
-export { sanitizePeerText } from './untrusted.js';
+export { sanitizePeerText } from '@pooriaarab/vibe-core/untrusted';
 
 export {
   LIVE_NOTICE,

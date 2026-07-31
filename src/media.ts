@@ -21,7 +21,7 @@
  * {@link PeerLink.sendMedia} to {@link sendMediaFile}, so callers never touch
  * the raw socket.
  */
-import { randomUUID } from 'node:crypto';
+import { newId } from '@pooriaarab/vibe-core/ids';
 import { readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -103,7 +103,7 @@ export interface SendResult {
  */
 export async function sendMedia(opts: SendMediaOptions): Promise<SendResult> {
   const { socket, data, mime, name } = opts;
-  const id = opts.id ?? randomUUID();
+  const id = opts.id ?? newId();
   const size = data.length;
   if (size > MAX_MEDIA_SIZE) {
     throw new Error(`media too large: ${size} bytes exceeds ${MAX_MEDIA_SIZE} byte cap`);

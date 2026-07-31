@@ -22,7 +22,7 @@
  * connection handler may hand any leftover bytes (after the hello line) in
  * `initialBuffer` so frames sent immediately after hello are not lost.
  */
-import { randomUUID } from 'node:crypto';
+import { newId } from '@pooriaarab/vibe-core/ids';
 import type { Duplex } from 'node:stream';
 import {
   parseFrame,
@@ -38,6 +38,7 @@ import {
   sendMediaFile,
 } from './media.js';
 import type { PeerHello } from './p2p.js';
+import { createPeerLink as coreCreatePeerLink } from '@pooriaarab/vibe-core/link';
 
 /** Options for {@link createPeerLink}. */
 export interface CreatePeerLinkOptions {
@@ -83,20 +84,14 @@ export interface PeerLink {
 export function createPeerLink(
   socket: Duplex,
   hello: PeerHello,
-  initialBuffer = '',
+  initialBuffer: string | Buffer = '',
   linkOpts: CreatePeerLinkOptions = {},
 ): PeerLink {
   const messageCbs = new Set<(m: { id: string; text: string; at: number }) => void>();
   const postCbs = new Set<(p: PostFrame) => void>();
   const mediaCbs = new Set<(m: ReceivedMedia) => void>();
   const signalCbs = new Set<(f: RtcFrame) => void>();
-  const closeCbs = new Set<() => void>();
-  let buf = initialBuffer;
-  let closed = false;
 
-  // Lazily created on the first onMedia() registration so a link that nobody
-  // listens for media on never touches the disk (media frames are then just
-  // dropped, like 'typing').
   let mediaReceiver: MediaReceiver | undefined;
   const ensureMediaReceiver = (): MediaReceiver => {
     if (!mediaReceiver) {
@@ -110,118 +105,67 @@ export function createPeerLink(
     return mediaReceiver;
   };
 
-  const dispatch = (frame: Frame): void => {
-    switch (frame.t) {
+  const coreLink = coreCreatePeerLink<Frame, PeerHello>(socket, {
+    codec: { parse: parseFrame, serialize: serializeFrame },
+    hello,
+    initialBuffer,
+    byeFrame: { t: 'bye' },
+  });
+
+  coreLink.onFrame((frame) => {
+    const f = frame as Frame;
+    switch (f.t) {
       case 'msg': {
-        const m = { id: frame.id, text: frame.text, at: frame.at };
+        const m = { id: f.id, text: f.text, at: f.at };
         for (const cb of messageCbs) cb(m);
         break;
       }
       case 'post': {
-        const p: PostFrame = {
-          t: 'post',
-          id: frame.id,
-          author: frame.author,
-          text: frame.text,
-          at: frame.at,
-          sig: frame.sig,
-        };
-        for (const cb of postCbs) cb(p);
+        for (const cb of postCbs) cb(f as PostFrame);
         break;
       }
       case 'media-start':
       case 'media-chunk':
       case 'media-end': {
-        mediaReceiver?.handle(frame as MediaFrame);
+        if (f.t === 'media-chunk' && !('b64' in f)) return;
+        mediaReceiver?.handle(f as MediaFrame);
         break;
       }
       case 'rtc-offer':
       case 'rtc-answer':
       case 'rtc-ice': {
-        const f = frame as RtcFrame;
-        for (const cb of signalCbs) cb(f);
+        for (const cb of signalCbs) cb(f as RtcFrame);
         break;
       }
-      case 'bye': {
-        if (!closed) {
-          closed = true;
-          for (const cb of closeCbs) cb();
-        }
-        break;
-      }
-      // 'hello' / 'typing' have no meaning at the link layer — hello already
-      // happened; typing is a future affordance. Ignore silently.
       default:
         break;
-    }
-  };
-
-  const pump = (): void => {
-    let nl: number;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl);
-      buf = buf.slice(nl + 1);
-      if (line.trim() === '') continue;
-      const frame = parseFrame(line);
-      if (frame === null) continue; // malformed/unknown frame — drop, never crash
-      dispatch(frame);
-    }
-  };
-
-  // Replay any leftover bytes the connection handler already had buffered.
-  pump();
-
-  socket.on('data', (chunk: Buffer) => {
-    buf += chunk.toString('utf8');
-    pump();
-  });
-  socket.on('end', () => {
-    if (!closed) {
-      closed = true;
-      for (const cb of closeCbs) cb();
-    }
-  });
-  socket.on('close', () => {
-    if (!closed) {
-      closed = true;
-      for (const cb of closeCbs) cb();
-    }
-  });
-  socket.on('error', () => {
-    // Peer vanished — surface as a close so callers stop waiting. Never throw.
-    if (!closed) {
-      closed = true;
-      for (const cb of closeCbs) cb();
     }
   });
 
   return {
     hello,
     send(text) {
-      if (closed) return;
-      const frame: Frame = { t: 'msg', id: randomUUID(), text, at: Date.now() };
-      socket.write(serializeFrame(frame) + '\n');
+      if (coreLink.closed) return;
+      coreLink.sendFrame({ t: 'msg', id: newId(), text, at: Date.now() });
     },
     sendPost(post) {
-      if (closed) return;
-      // Rebuild key-by-key so only the allowlisted post fields hit the wire.
-      const frame: Frame = {
+      if (coreLink.closed) return;
+      coreLink.sendFrame({
         t: 'post',
         id: post.id,
         author: post.author,
         text: post.text,
         at: post.at,
         sig: post.sig,
-      };
-      socket.write(serializeFrame(frame) + '\n');
+      });
     },
     async sendMedia(filePath, opts = {}) {
-      if (closed) return { id: '', size: 0 };
+      if (coreLink.closed) return { id: '', size: 0 };
       return sendMediaFile({ socket, path: filePath, mime: opts.mime, name: opts.name });
     },
     sendSignal(frame) {
-      if (closed) return;
-      socket.write(serializeFrame(frame) + '\n');
+      if (coreLink.closed) return;
+      coreLink.sendFrame(frame);
     },
     onMessage(cb) {
       messageCbs.add(cb);
@@ -237,21 +181,10 @@ export function createPeerLink(
       signalCbs.add(cb);
     },
     onClose(cb) {
-      closeCbs.add(cb);
+      coreLink.onClose(cb);
     },
     close() {
-      if (closed) return;
-      closed = true; // a locally-initiated close does NOT re-fire our own onClose
-      try {
-        socket.write(serializeFrame({ t: 'bye' }) + '\n');
-      } catch {
-        /* socket already gone — nothing more to do */
-      }
-      try {
-        socket.end();
-      } catch {
-        /* already ended */
-      }
+      coreLink.close();
     },
   };
 }
