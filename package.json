@@ -1,6 +1,6 @@
 {
   "name": "vibenetwork",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Decentralized social network for AI coders — P2P, verified-by-usage ed25519 identity, presence, follow, signed-post feed, e2e DMs. Local-first.",
   "type": "module",
   "license": "MIT",
