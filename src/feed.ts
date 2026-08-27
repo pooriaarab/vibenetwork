@@ -84,9 +84,12 @@ interface ValidatedPostFields {
   readonly sig: string;
 }
 
-function isHexString(value: unknown, len: number): boolean {
+const HEX_64 = /^[0-9a-f]{64}$/i;
+const HEX_128 = /^[0-9a-f]{128}$/i;
+
+function isHexString(value: unknown, len: 64 | 128): boolean {
   if (typeof value !== 'string') return false;
-  return new RegExp(`^[0-9a-f]{${len}}$`, 'i').test(value);
+  return (len === 64 ? HEX_64 : HEX_128).test(value);
 }
 
 function isValidText(value: unknown): boolean {
