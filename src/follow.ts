@@ -133,7 +133,11 @@ export function resolveFollowedPubkeys(dir: string = defaultStateDir()): Set<str
   if (handleEdges.length > 0) {
     for (const peer of loadPeers(dir)) {
       if (peer.pubkey === undefined) continue;
-      if (handleEdges.some((e) => sameHandle(e.handle!, peer.handle))) {
+      if (handleEdges.some((e) => {
+        const h = e.handle;
+        if (h === undefined) throw new Error('follow entry missing handle');
+        return sameHandle(h, peer.handle);
+      })) {
         out.add(peer.pubkey.toLowerCase());
       }
     }
