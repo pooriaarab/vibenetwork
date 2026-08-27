@@ -49,7 +49,10 @@ function cryptoRand(): number {
 }
 
 function pick<T>(list: readonly T[], rand: () => number): T {
-  return list[Math.min(list.length - 1, Math.floor(rand() * list.length))]!;
+  const idx = Math.min(list.length - 1, Math.floor(rand() * list.length));
+  const val = list[idx];
+  if (val === undefined) throw new Error('pick: empty list');
+  return val;
 }
 
 /**

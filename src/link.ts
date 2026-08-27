@@ -76,6 +76,67 @@ export interface PeerLink {
   close(): void;
 }
 
+interface LinkCallbacks {
+  readonly messageCbs: Set<(m: { id: string; text: string; at: number }) => void>;
+  readonly postCbs: Set<(p: PostFrame) => void>;
+  readonly mediaCbs: Set<(m: ReceivedMedia) => void>;
+  readonly signalCbs: Set<(f: RtcFrame) => void>;
+}
+
+function createCallbacks(): LinkCallbacks {
+  return {
+    messageCbs: new Set(),
+    postCbs: new Set(),
+    mediaCbs: new Set(),
+    signalCbs: new Set(),
+  };
+}
+
+function handleMsgFrame(f: Frame, cbs: LinkCallbacks): void {
+  if (f.t !== 'msg') return;
+  const m = { id: f.id, text: f.text, at: f.at };
+  for (const cb of cbs.messageCbs) cb(m);
+}
+
+function handlePostFrame(f: Frame, cbs: LinkCallbacks): void {
+  if (f.t !== 'post') return;
+  for (const cb of cbs.postCbs) cb(f as PostFrame);
+}
+
+function handleMediaFrame(f: Frame, cbs: LinkCallbacks, receiver: MediaReceiver | undefined): void {
+  if (f.t !== 'media-start' && f.t !== 'media-chunk' && f.t !== 'media-end') return;
+  if (f.t === 'media-chunk' && !('b64' in f)) return;
+  receiver?.handle(f as MediaFrame);
+}
+
+function handleSignalFrame(f: Frame, cbs: LinkCallbacks): void {
+  if (f.t !== 'rtc-offer' && f.t !== 'rtc-answer' && f.t !== 'rtc-ice') return;
+  for (const cb of cbs.signalCbs) cb(f as RtcFrame);
+}
+
+function dispatchFrame(frame: Frame, cbs: LinkCallbacks, receiver: MediaReceiver | undefined): void {
+  const f = frame as Frame;
+  if (f.t === 'msg') { handleMsgFrame(f, cbs); return; }
+  if (f.t === 'post') { handlePostFrame(f, cbs); return; }
+  if (f.t === 'media-start' || f.t === 'media-chunk' || f.t === 'media-end') {
+    handleMediaFrame(f, cbs, receiver); return;
+  }
+  if (f.t === 'rtc-offer' || f.t === 'rtc-answer' || f.t === 'rtc-ice') {
+    handleSignalFrame(f, cbs); return;
+  }
+}
+
+function ensureMediaReceiver(
+  state: { receiver: MediaReceiver | undefined },
+  cbs: LinkCallbacks,
+  opts: CreatePeerLinkOptions,
+): MediaReceiver {
+  if (state.receiver !== undefined) return state.receiver;
+  const r = new MediaReceiver((m) => { for (const cb of cbs.mediaCbs) cb(m); }, { tmpDir: opts.mediaTmpDir });
+  state.receiver = r;
+  return r;
+}
+
 /**
  * Build a {@link PeerLink} over `socket`. `initialBuffer` carries any bytes the
  * caller already buffered after the hello line (so frames sent right after the
@@ -87,23 +148,8 @@ export function createPeerLink(
   initialBuffer: string | Buffer = '',
   linkOpts: CreatePeerLinkOptions = {},
 ): PeerLink {
-  const messageCbs = new Set<(m: { id: string; text: string; at: number }) => void>();
-  const postCbs = new Set<(p: PostFrame) => void>();
-  const mediaCbs = new Set<(m: ReceivedMedia) => void>();
-  const signalCbs = new Set<(f: RtcFrame) => void>();
-
-  let mediaReceiver: MediaReceiver | undefined;
-  const ensureMediaReceiver = (): MediaReceiver => {
-    if (!mediaReceiver) {
-      mediaReceiver = new MediaReceiver(
-        (m) => {
-          for (const cb of mediaCbs) cb(m);
-        },
-        { tmpDir: linkOpts.mediaTmpDir },
-      );
-    }
-    return mediaReceiver;
-  };
+  const cbs = createCallbacks();
+  const mediaState: { receiver: MediaReceiver | undefined } = { receiver: undefined };
 
   const coreLink = coreCreatePeerLink<Frame, PeerHello>(socket, {
     codec: { parse: parseFrame, serialize: serializeFrame },
@@ -112,79 +158,47 @@ export function createPeerLink(
     byeFrame: { t: 'bye' },
   });
 
-  coreLink.onFrame((frame) => {
-    const f = frame as Frame;
-    switch (f.t) {
-      case 'msg': {
-        const m = { id: f.id, text: f.text, at: f.at };
-        for (const cb of messageCbs) cb(m);
-        break;
-      }
-      case 'post': {
-        for (const cb of postCbs) cb(f as PostFrame);
-        break;
-      }
-      case 'media-start':
-      case 'media-chunk':
-      case 'media-end': {
-        if (f.t === 'media-chunk' && !('b64' in f)) return;
-        mediaReceiver?.handle(f as MediaFrame);
-        break;
-      }
-      case 'rtc-offer':
-      case 'rtc-answer':
-      case 'rtc-ice': {
-        for (const cb of signalCbs) cb(f as RtcFrame);
-        break;
-      }
-      default:
-        break;
-    }
-  });
+  coreLink.onFrame((frame) => dispatchFrame(frame as Frame, cbs, mediaState.receiver));
 
+  return buildLink({ socket, hello, coreLink, cbs, mediaState, linkOpts });
+}
+
+interface BuildLinkContext {
+  readonly socket: Duplex;
+  readonly hello: PeerHello;
+  readonly coreLink: ReturnType<typeof coreCreatePeerLink<Frame, PeerHello>>;
+  readonly cbs: LinkCallbacks;
+  readonly mediaState: { receiver: MediaReceiver | undefined };
+  readonly linkOpts: CreatePeerLinkOptions;
+}
+
+function buildLink(ctx: BuildLinkContext): PeerLink {
   return {
-    hello,
+    hello: ctx.hello,
     send(text) {
-      if (coreLink.closed) return;
-      coreLink.sendFrame({ t: 'msg', id: newId(), text, at: Date.now() });
+      if (ctx.coreLink.closed) return;
+      ctx.coreLink.sendFrame({ t: 'msg', id: newId(), text, at: Date.now() });
     },
     sendPost(post) {
-      if (coreLink.closed) return;
-      coreLink.sendFrame({
-        t: 'post',
-        id: post.id,
-        author: post.author,
-        text: post.text,
-        at: post.at,
-        sig: post.sig,
-      });
+      if (ctx.coreLink.closed) return;
+      ctx.coreLink.sendFrame({ t: 'post', id: post.id, author: post.author, text: post.text, at: post.at, sig: post.sig });
     },
     async sendMedia(filePath, opts = {}) {
-      if (coreLink.closed) return { id: '', size: 0 };
-      return sendMediaFile({ socket, path: filePath, mime: opts.mime, name: opts.name });
+      if (ctx.coreLink.closed) return { id: '', size: 0 };
+      return sendMediaFile({ socket: ctx.socket, path: filePath, mime: opts.mime, name: opts.name });
     },
     sendSignal(frame) {
-      if (coreLink.closed) return;
-      coreLink.sendFrame(frame);
+      if (ctx.coreLink.closed) return;
+      ctx.coreLink.sendFrame(frame);
     },
-    onMessage(cb) {
-      messageCbs.add(cb);
-    },
-    onPost(cb) {
-      postCbs.add(cb);
-    },
+    onMessage(cb) { ctx.cbs.messageCbs.add(cb); },
+    onPost(cb) { ctx.cbs.postCbs.add(cb); },
     onMedia(cb) {
-      ensureMediaReceiver();
-      mediaCbs.add(cb);
+      ensureMediaReceiver(ctx.mediaState, ctx.cbs, ctx.linkOpts);
+      ctx.cbs.mediaCbs.add(cb);
     },
-    onSignal(cb) {
-      signalCbs.add(cb);
-    },
-    onClose(cb) {
-      coreLink.onClose(cb);
-    },
-    close() {
-      coreLink.close();
-    },
+    onSignal(cb) { ctx.cbs.signalCbs.add(cb); },
+    onClose(cb) { ctx.coreLink.onClose(cb); },
+    close() { ctx.coreLink.close(); },
   };
 }

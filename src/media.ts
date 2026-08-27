@@ -208,65 +208,60 @@ export class MediaReceiver {
     this.transfers.delete(id);
   }
 
+  private handleStart(frame: Extract<MediaFrame, { t: 'media-start' }>): void {
+    this.transfers.set(frame.id, {
+      mime: frame.mime,
+      name: frame.name,
+      size: frame.size,
+      nextSeq: 0,
+      chunks: [],
+      received: 0,
+    });
+  }
+
+  private handleChunk(frame: Extract<MediaFrame, { t: 'media-chunk' }>): void {
+    const tx = this.transfers.get(frame.id);
+    if (tx === undefined) return;
+    if (frame.seq !== tx.nextSeq) {
+      this.abort(frame.id);
+      return;
+    }
+    let bytes: Buffer;
+    try {
+      bytes = Buffer.from(frame.b64, 'base64');
+    } catch {
+      this.abort(frame.id);
+      return;
+    }
+    const received = tx.received + bytes.length;
+    if (received > tx.size || received > MAX_MEDIA_SIZE) {
+      this.abort(frame.id);
+      return;
+    }
+    tx.chunks.push(bytes);
+    tx.received = received;
+    tx.nextSeq += 1;
+  }
+
+  private handleEnd(frame: Extract<MediaFrame, { t: 'media-end' }>): void {
+    const tx = this.transfers.get(frame.id);
+    if (tx === undefined) return;
+    this.transfers.delete(frame.id);
+    if (tx.received !== tx.size) return;
+    const buf = Buffer.concat(tx.chunks, tx.received);
+    const filePath = path.join(this.opts.tmpDir ?? os.tmpdir(), safeName(frame.id, tx.name));
+    try {
+      writeFileSync(filePath, buf);
+    } catch {
+      return;
+    }
+    this.onMedia({ mime: tx.mime, name: tx.name, path: filePath, size: tx.received });
+  }
+
   /** Feed one parsed media frame. Never throws. */
   handle(frame: MediaFrame): void {
-    switch (frame.t) {
-      case 'media-start': {
-        // A re-start for an existing id resets state.
-        this.transfers.set(frame.id, {
-          mime: frame.mime,
-          name: frame.name,
-          size: frame.size,
-          nextSeq: 0,
-          chunks: [],
-          received: 0,
-        });
-        return;
-      }
-      case 'media-chunk': {
-        const tx = this.transfers.get(frame.id);
-        if (!tx) return; // chunk without a start — drop
-        // Enforce strict in-order delivery: any dup or out-of-order seq aborts.
-        if (frame.seq !== tx.nextSeq) {
-          this.abort(frame.id);
-          return;
-        }
-        let bytes: Buffer;
-        try {
-          bytes = Buffer.from(frame.b64, 'base64');
-        } catch {
-          this.abort(frame.id);
-          return;
-        }
-        const received = tx.received + bytes.length;
-        // Reject if the running total overshoots the declared size or the cap.
-        if (received > tx.size || received > MAX_MEDIA_SIZE) {
-          this.abort(frame.id);
-          return;
-        }
-        tx.chunks.push(bytes);
-        tx.received = received;
-        tx.nextSeq += 1;
-        return;
-      }
-      case 'media-end': {
-        const tx = this.transfers.get(frame.id);
-        if (!tx) return;
-        this.transfers.delete(frame.id);
-        // Only deliver when every declared byte arrived in order.
-        if (tx.received !== tx.size) return;
-        const buf = Buffer.concat(tx.chunks, tx.received);
-        const filePath = path.join(this.opts.tmpDir ?? os.tmpdir(), safeName(frame.id, tx.name));
-        try {
-          writeFileSync(filePath, buf);
-        } catch {
-          return; // disk full / bad path — best effort, never throw
-        }
-        this.onMedia({ mime: tx.mime, name: tx.name, path: filePath, size: tx.received });
-        return;
-      }
-      default:
-        return;
-    }
+    if (frame.t === 'media-start') { this.handleStart(frame); return; }
+    if (frame.t === 'media-chunk') { this.handleChunk(frame); return; }
+    if (frame.t === 'media-end') { this.handleEnd(frame); }
   }
 }

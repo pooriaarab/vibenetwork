@@ -237,23 +237,58 @@ export async function createProfile(opts: CreateProfileOptions): Promise<Profile
   return profile;
 }
 
+function parseProfileHandle(r: Record<string, unknown>): string | null {
+  const raw = r['handle'];
+  if (typeof raw !== 'string') return null;
+  return normalizeHandle(raw);
+}
+
+function parseProfilePubkey(r: Record<string, unknown>): string | null {
+  const v = r['pubkey'];
+  if (typeof v !== 'string') return null;
+  if (!/^[0-9a-fA-F]{64}$/.test(v)) return null;
+  return v.toLowerCase();
+}
+
+function parseProfileBio(r: Record<string, unknown>): string {
+  const v = r['bio'];
+  return typeof v === 'string' ? cleanBio(v) : '';
+}
+
+function parseProfileLeague(r: Record<string, unknown>): string {
+  const v = r['league'];
+  if (typeof v === 'string' && v.length > 0) return v;
+  return BELOW_LEAGUE;
+}
+
+function parseProfileLinks(r: Record<string, unknown>): string[] {
+  const v = r['links'];
+  if (!Array.isArray(v)) return [];
+  return cleanLinks(v);
+}
+
+function parseProfileConnectedAt(r: Record<string, unknown>): string {
+  const v = r['connectedAt'];
+  if (typeof v === 'string') return v;
+  return new Date(0).toISOString();
+}
+
 /** Shape-guard for a persisted profile (lenient: fills sane defaults). */
 function toProfile(data: unknown): Profile | null {
   if (typeof data !== 'object' || data === null) return null;
   const r = data as Record<string, unknown>;
-  const handle = typeof r['handle'] === 'string' ? normalizeHandle(r['handle']) : null;
-  const pubkey = r['pubkey'];
+  const handle = parseProfileHandle(r);
   if (handle === null) return null;
-  if (typeof pubkey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(pubkey)) return null;
+  const pubkey = parseProfilePubkey(r);
+  if (pubkey === null) return null;
   return {
     handle,
-    pubkey: pubkey.toLowerCase(),
-    bio: typeof r['bio'] === 'string' ? cleanBio(r['bio']) : '',
-    league: typeof r['league'] === 'string' && r['league'].length > 0 ? r['league'] : BELOW_LEAGUE,
+    pubkey,
+    bio: parseProfileBio(r),
+    league: parseProfileLeague(r),
     verified: r['verified'] === true,
-    links: Array.isArray(r['links']) ? cleanLinks(r['links']) : [],
-    connectedAt:
-      typeof r['connectedAt'] === 'string' ? r['connectedAt'] : new Date(0).toISOString(),
+    links: parseProfileLinks(r),
+    connectedAt: parseProfileConnectedAt(r),
   };
 }
 

@@ -17,13 +17,13 @@
   },
   "rules": {
     "complexity": [
-      "warn",
+      "error",
       {
         "max": 10
       }
     ],
     "max-lines": [
-      "warn",
+      "error",
       {
         "max": 300,
         "skipBlankLines": true,
@@ -31,7 +31,7 @@
       }
     ],
     "max-lines-per-function": [
-      "warn",
+      "error",
       {
         "max": 50,
         "skipBlankLines": true,
@@ -60,8 +60,8 @@
     "prefer-const": "error",
     "eqeqeq": "error",
     "no-debugger": "error",
-    "typescript/no-explicit-any": "warn",
-    "typescript/no-non-null-assertion": "warn",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
     "import/no-cycle": "error"
   },
   "overrides": [

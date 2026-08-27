@@ -76,6 +76,66 @@ export function createPost(identity: Identity, text: string, at: number = Date.n
   return { id: postId(unsigned), authorPubkey: unsigned.authorPubkey, text, at, sig: sig.toString('hex') };
 }
 
+interface ValidatedPostFields {
+  readonly id: string;
+  readonly authorPubkey: string;
+  readonly text: string;
+  readonly at: number;
+  readonly sig: string;
+}
+
+const HEX_64 = /^[0-9a-f]{64}$/i;
+const HEX_128 = /^[0-9a-f]{128}$/i;
+
+function isHexString(value: unknown, len: 64 | 128): boolean {
+  if (typeof value !== 'string') return false;
+  return (len === 64 ? HEX_64 : HEX_128).test(value);
+}
+
+function isValidText(value: unknown): boolean {
+  return typeof value === 'string' && value.length > 0 && value.length <= POST_TEXT_MAX;
+}
+
+function isValidAt(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function extractFields(post: unknown): ValidatedPostFields | null {
+  if (typeof post !== 'object' || post === null) return null;
+  const p = post as Record<string, unknown>;
+  const id = p['id'];
+  const authorPubkey = p['authorPubkey'];
+  const text = p['text'];
+  const at = p['at'];
+  const sig = p['sig'];
+  if (!isHexString(id, 64)) return null;
+  if (!isHexString(authorPubkey, 64)) return null;
+  if (!isValidText(text)) return null;
+  if (!isValidAt(at)) return null;
+  if (!isHexString(sig, 128)) return null;
+  return {
+    id: id as string,
+    authorPubkey: authorPubkey as string,
+    text: text as string,
+    at: at as number,
+    sig: sig as string,
+  };
+}
+
+function isIdMatches(fields: ValidatedPostFields): boolean {
+  const unsigned = { authorPubkey: fields.authorPubkey.toLowerCase(), at: fields.at, text: fields.text };
+  return postId(unsigned) === fields.id.toLowerCase();
+}
+
+function verifySignature(fields: ValidatedPostFields): boolean {
+  const unsigned = { authorPubkey: fields.authorPubkey.toLowerCase(), at: fields.at, text: fields.text };
+  const publicKey = createPublicKey({
+    key: { kty: 'OKP', crv: 'Ed25519', x: Buffer.from(fields.authorPubkey, 'hex').toString('base64url') },
+    format: 'jwk',
+  });
+  return verify(null, Buffer.from(canonicalPostPayload(unsigned), 'utf8'), publicKey, Buffer.from(fields.sig, 'hex'));
+}
+
 /**
  * Verify a claimed post. NEVER throws — any anomaly (bad hex, wrong id,
  * oversized text, bad signature) is simply `false`. This is the tamper-drop
@@ -83,36 +143,10 @@ export function createPost(identity: Identity, text: string, at: number = Date.n
  */
 export function verifyPost(post: unknown): post is Post {
   try {
-    if (typeof post !== 'object' || post === null) return false;
-    const p = post as Record<string, unknown>;
-    const id = p['id'];
-    const authorPubkey = p['authorPubkey'];
-    const text = p['text'];
-    const at = p['at'];
-    const sig = p['sig'];
-    if (typeof id !== 'string' || !/^[0-9a-f]{64}$/i.test(id)) return false;
-    if (typeof authorPubkey !== 'string' || !/^[0-9a-f]{64}$/i.test(authorPubkey)) return false;
-    if (typeof text !== 'string' || text.length === 0 || text.length > POST_TEXT_MAX) return false;
-    if (typeof at !== 'number' || !Number.isFinite(at) || at < 0) return false;
-    if (typeof sig !== 'string' || !/^[0-9a-f]{128}$/i.test(sig)) return false;
-    const unsigned = { authorPubkey: authorPubkey.toLowerCase(), at, text };
-    // The id must be the sha256 of the exact signed payload — a recomputed
-    // mismatch means the envelope was tampered with even before the sig check.
-    if (postId(unsigned) !== id.toLowerCase()) return false;
-    const publicKey = createPublicKey({
-      key: {
-        kty: 'OKP',
-        crv: 'Ed25519',
-        x: Buffer.from(authorPubkey, 'hex').toString('base64url'),
-      },
-      format: 'jwk',
-    });
-    return verify(
-      null,
-      Buffer.from(canonicalPostPayload(unsigned), 'utf8'),
-      publicKey,
-      Buffer.from(sig, 'hex'),
-    );
+    const fields = extractFields(post);
+    if (fields === null) return false;
+    if (!isIdMatches(fields)) return false;
+    return verifySignature(fields);
   } catch {
     return false;
   }

@@ -163,7 +163,7 @@ const codec = defineFrames(
 );
 
 export function serializeFrame(f: Frame): string {
-  return codec.serialize(f as any);
+  return codec.serialize(f as unknown as Parameters<typeof codec.serialize>[0]);
 }
 
 export function parseFrame(raw: string | Buffer): Frame | null {
