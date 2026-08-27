@@ -160,12 +160,3 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   }
   return out;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Shared helpers                                                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Compact relative time for local lists: an ISO timestamp or ms epoch →
- * "just now" / "5m ago" / "3h ago" / "2d ago". Unparseable input → "unknown".
- */
