@@ -17,18 +17,18 @@ Do not apply web-only visual tokens to terminal output.
 
 The web app uses CSS properties in `src/web-app-html-parts.ts`.
 
-| Role | Token | Value |
-|---|---|---|
-| Canvas | `--bg` | `#0f1419` |
-| Card start | `--bg-card` | `#1a2330` |
-| Card end | `--bg-card-2` | `#1f2938` |
-| Primary text | `--fg` | `#e8eef6` |
-| Secondary text | `--muted` | `#9aadc2` |
-| Primary action | `--accent` | `#5ec8ff` |
-| Verified or success | `--mint` | `#7fe3c0` |
-| Warning | `--amber` | `#ffb15e` |
-| Error or unread | `--coral` | `#ff7a68` |
-| Destructive action | `--danger` | `#ff6b6f` |
+| Role                | Token         | Value     |
+| ------------------- | ------------- | --------- |
+| Canvas              | `--bg`        | `#0f1419` |
+| Card start          | `--bg-card`   | `#1a2330` |
+| Card end            | `--bg-card-2` | `#1f2938` |
+| Primary text        | `--fg`        | `#e8eef6` |
+| Secondary text      | `--muted`     | `#9aadc2` |
+| Primary action      | `--accent`    | `#5ec8ff` |
+| Verified or success | `--mint`      | `#7fe3c0` |
+| Warning             | `--amber`     | `#ffb15e` |
+| Error or unread     | `--coral`     | `#ff7a68` |
+| Destructive action  | `--danger`    | `#ff6b6f` |
 
 Use semantic properties instead of repeating raw values.
 Keep text contrast readable against every dark surface.
@@ -46,7 +46,7 @@ The hero uses `clamp(1.5rem, 3vw, 2.2rem)` and weight `800`.
 Body and post text use a `1.5` line height.
 
 The CLI inherits the terminal font.
-Indent command output by two spaces and separate metadata with ` · `.
+Indent command output by two spaces. Separate metadata with a spaced middle dot.
 
 ## Layout
 
