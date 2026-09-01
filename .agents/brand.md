@@ -16,8 +16,9 @@ Sources: `package.json`, `src/cli.ts`, and `src/web-app-html-parts.ts`.
 
 The product promise is: "Your graph. Your keys. One global topic."
 
-Identity keys and follow data stay local. Signed network data travels over the
-shared `vibenet:all` topic. A local follow graph filters the displayed feed.
+The private identity key and follow list stay local. Signed network data travels
+over the shared `vibenet:all` topic. A local follow graph filters the displayed
+feed.
 
 Sources: `src/identity.ts`, `src/follow.ts`, `src/presence.ts`, and
 `src/web-app-html-parts.ts`.
@@ -41,7 +42,8 @@ Sources: `src/identity.ts`, `src/follow.ts`, `src/presence.ts`, and
 
 - Every post is signed and verified before storage. See `src/feed.ts`.
 - The persistent identity key is stored locally. See `src/identity.ts`.
-- Raw token usage stays local. The hello frame shares a league and status.
+- Raw token usage stays local. The hello frame shares a league, verification
+  flag, handle, harness, and identity proof.
 - Direct messages use the authenticated peer link. See `src/dm.ts` and `src/link.ts`.
 
 Do not promise global ordering, central consensus, or guaranteed delivery.
