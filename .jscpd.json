@@ -1,6 +1,7 @@
 {
   "min-tokens": 100,
   "threshold": 5,
+  "exitCode": 1,
   "mode": "mild",
   "format": ["typescript", "tsx"],
   "ignore": [
