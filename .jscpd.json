@@ -1,5 +1,5 @@
 {
-  "min-tokens": 100,
+  "minTokens": 100,
   "threshold": 5,
   "exitCode": 1,
   "mode": "mild",
