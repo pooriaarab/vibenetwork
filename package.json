@@ -27,7 +27,7 @@
     "hyperdht": "^6.33.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0",
+    "vitest": "^3.2.6",
     "werift": "^0.24.1"
   },
   "mcpName": "io.github.pooriaarab/vibenetwork"
