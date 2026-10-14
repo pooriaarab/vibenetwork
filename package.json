@@ -1,6 +1,6 @@
 {
   "name": "vibenetwork",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Peer-to-peer social network for AI coders with Hyperswarm discovery, ed25519 signed posts, local follows, direct messages, and MCP tools.",
   "type": "module",
   "license": "MIT",
